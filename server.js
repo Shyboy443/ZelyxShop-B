@@ -82,7 +82,10 @@ app.get("/", (req, res) => {
       products: "/api/products",
       categories: "/api/categories",
       orders: "/api/orders",
-      admin: "/api/admin"
+      admin: "/api/admin",
+      currency: "/api/currency",
+      payments: "/api/payments",
+      upload: "/api/upload"
     }
   });
 });
@@ -109,56 +112,38 @@ app.use("*", (req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 
-// MongoDB connection
-mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => {
+// MongoDB connection for serverless
+let isConnected = false;
+
+const connectToDatabase = async () => {
+  if (isConnected) {
+    return;
+  }
+
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    isConnected = true;
     console.log("✅ Connected to MongoDB");
-
-    // Create default admin user
-    require("./utils/createAdmin")();
-
-    // Initialize Auto-Delivery Service
-    const AutoDeliveryService = require("./services/autoDeliveryService");
-    const PaymentTimeoutService = require("./services/paymentTimeoutService");
-
-    // Start periodic delivery checking with optimized intervals
-    const deliveryCheckInterval = AutoDeliveryService.startPeriodicCheck(30); // 30 minutes - reduced from 15
-    PaymentTimeoutService.startPeriodicCheck(60); // 60 minutes - reduced from 30
-
-    // Graceful shutdown handling
-    process.on("SIGTERM", () => {
-      console.log("🛑 SIGTERM received, shutting down gracefully...");
-      if (deliveryCheckInterval) {
-        clearInterval(deliveryCheckInterval);
-        console.log("✅ Auto-delivery service stopped");
-      }
-      process.exit(0);
-    });
-
-    process.on("SIGINT", () => {
-      console.log("🛑 SIGINT received, shutting down gracefully...");
-      if (deliveryCheckInterval) {
-        clearInterval(deliveryCheckInterval);
-        console.log("✅ Auto-delivery service stopped");
-      }
-      process.exit(0);
-    });
-  })
-  .catch((err) => {
+    
+    // Create default admin user (only run once)
+    if (!global.adminCreated) {
+      require("./utils/createAdmin")();
+      global.adminCreated = true;
+    }
+  } catch (err) {
     console.error("❌ MongoDB connection error:", err);
-    process.exit(1);
-  });
+    throw err;
+  }
+};
 
-const PORT = process.env.PORT || 5000;
+// Connect to database on startup
+connectToDatabase();
 
-app.listen(PORT, () => {
-  console.log(`🚀 Zelyx server running on port ${PORT}`);
-  console.log(`🌐 Environment: ${process.env.NODE_ENV}`);
-});
+// Export the app for Vercel
+module.exports = app;
 
 // Request logging middleware (disabled to reduce console noise)
 // app.use((req, res, next) => {

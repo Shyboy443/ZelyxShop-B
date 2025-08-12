@@ -122,3 +122,4 @@ uploads/temp/*
 *.key
 *.crt
 *.csr
+.vercel
