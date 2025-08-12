@@ -1,6 +1,6 @@
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const Order = require("../models/Order");
-const AutoDeliveryService = require("./AutoDeliveryService");
+const AutoDeliveryService = require("./autoDeliveryService");
 
 class PaymentService {
   /**
