@@ -217,4 +217,18 @@ router.get('/supported', (req, res) => {
   });
 });
 
+// @desc    Get currency API information
+// @route   GET /api/currency
+// @access  Public
+router.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Currency API',
+    endpoints: {
+      rates: '/api/currency/rates',
+      supported: '/api/currency/supported'
+    }
+  });
+});
+
 module.exports = router;
