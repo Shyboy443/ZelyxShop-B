@@ -13,8 +13,8 @@ async function createSimpleAdmin() {
 
     // Create the simple admin user
     const adminUser = new AdminUser({
-      email: "admin@gmail.com",
-      password: "ashen443",
+      email: process.env.ADMIN_EMAIL || "admin@zelyx.shop",
+      password: process.env.ADMIN_PASSWORD || "admin123",
       firstName: "Admin",
       lastName: "User",
       role: "super_admin",
@@ -22,7 +22,7 @@ async function createSimpleAdmin() {
     });
 
     await adminUser.save();
-    console.log("Created simple admin user with email: admin@gmail.com");
+    console.log(`Created simple admin user with email: ${process.env.ADMIN_EMAIL || "admin@zelyx.shop"}`);
   } catch (error) {
     console.error("Error creating simple admin:", error);
   } finally {
