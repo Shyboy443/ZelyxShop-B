@@ -70,6 +70,23 @@ app.use(
 );
 app.use("/api/otp", require("./routes/otp"));
 
+// Root endpoint
+app.get("/", (req, res) => {
+  res.json({
+    name: "Zelyx API",
+    version: "1.0.0",
+    status: "OK",
+    message: "Zelyx API is running successfully",
+    endpoints: {
+      health: "/api/health",
+      products: "/api/products",
+      categories: "/api/categories",
+      orders: "/api/orders",
+      admin: "/api/admin"
+    }
+  });
+});
+
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK", message: "Zelyx API is running" });
