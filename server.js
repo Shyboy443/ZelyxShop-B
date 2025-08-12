@@ -14,10 +14,11 @@ app.set("trust proxy", 1);
 app.use(helmet());
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? "https://your-domain.com"
-        : process.env.CLIENT_URL || "https://your-domain.com", // Production client URL
+    origin: process.env.CLIENT_URL || [
+      "http://localhost:3000",
+      "https://zelyx-shop-h15ruo9vy-ashens-projects-29eb4a7c.vercel.app",
+      "https://*.vercel.app"
+    ],
     credentials: true,
   })
 );
