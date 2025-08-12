@@ -77,6 +77,7 @@ app.get("/", (req, res) => {
     version: "1.0.0",
     status: "OK",
     message: "Zelyx API is running successfully",
+    deployedAt: new Date().toISOString(),
     endpoints: {
       health: "/api/health",
       products: "/api/products",
