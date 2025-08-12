@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 
 // MongoDB connection for serverless
@@ -38,23 +39,26 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
+// Routes with absolute path resolution
 try {
-  app.use('/products', require('../routes/products'));
-  app.use('/categories', require('../routes/categories'));
-  app.use('/orders', require('../routes/orders'));
-  app.use('/admin', require('../routes/admin'));
-  app.use('/currency', require('../routes/currency'));
-  app.use('/payments', require('../routes/payments'));
-  app.use('/upload', require('../routes/upload'));
-  app.use('/email-verification', require('../routes/emailVerification'));
-  app.use('/admin/outlook-accounts', require('../routes/outlookAccounts'));
-  app.use('/admin/access-tokens', require('../routes/accessTokens'));
-  app.use('/customer/outlook-accounts', require('../routes/customerOutlookAccounts'));
-  app.use('/otp', require('../routes/otp'));
+  const routesPath = path.join(__dirname, '..', 'routes');
+  app.use('/products', require(path.join(routesPath, 'products')));
+  app.use('/categories', require(path.join(routesPath, 'categories')));
+  app.use('/orders', require(path.join(routesPath, 'orders')));
+  app.use('/admin', require(path.join(routesPath, 'admin')));
+  app.use('/currency', require(path.join(routesPath, 'currency')));
+  app.use('/payments', require(path.join(routesPath, 'payments')));
+  app.use('/upload', require(path.join(routesPath, 'upload')));
+  app.use('/email-verification', require(path.join(routesPath, 'emailVerification')));
+  app.use('/admin/outlook-accounts', require(path.join(routesPath, 'outlookAccounts')));
+  app.use('/admin/access-tokens', require(path.join(routesPath, 'accessTokens')));
+  app.use('/customer/outlook-accounts', require(path.join(routesPath, 'customerOutlookAccounts')));
+  app.use('/otp', require(path.join(routesPath, 'otp')));
   console.log('✅ All routes loaded successfully');
 } catch (err) {
   console.error('❌ Route loading error:', err);
+  console.error('❌ __dirname:', __dirname);
+  console.error('❌ Routes path:', path.join(__dirname, '..', 'routes'));
 }
 
 // Root endpoint
