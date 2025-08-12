@@ -129,25 +129,43 @@ router.get("/receipts/history", protect, async (req, res) => {
   }
 });
 
-// @desc    Admin login (No Security - Always Success)
+// @desc    Admin login
 // @route   POST /api/admin/login
 // @access  Public
 router.post("/login", async (req, res) => {
   try {
-    // Always return success regardless of credentials
-    const userData = {
-      id: "507f1f77bcf86cd799439011",
-      email: "admin@gmail.com",
-      firstName: "Admin",
-      lastName: "User",
-      role: "super_admin",
-      lastLogin: new Date(),
-    };
+    const { email, password } = req.body;
 
-    // Create a proper JWT token
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and password'
+      });
+    }
+
+    // Check if admin exists
+    const admin = await AdminUser.findOne({ email }).select('+password');
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+
+    // Check password
+    const bcrypt = require('bcryptjs');
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+
+    // Generate JWT token
     const jwt = require("jsonwebtoken");
     const token = jwt.sign(
-      { id: userData.id },
+      { id: admin._id, role: admin.role },
       process.env.JWT_SECRET || "fallback_secret",
       { expiresIn: "30d" }
     );
@@ -157,10 +175,18 @@ router.post("/login", async (req, res) => {
       message: "Login successful",
       data: {
         token,
-        user: userData,
+        user: {
+          id: admin._id,
+          email: admin.email,
+          firstName: admin.firstName,
+          lastName: admin.lastName,
+          role: admin.role,
+          lastLogin: new Date(),
+        },
       },
     });
   } catch (error) {
+    console.error('Admin login error:', error);
     res.status(500).json({
       success: false,
       message: "Error during login",
