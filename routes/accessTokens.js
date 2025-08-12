@@ -1,0 +1,487 @@
+const express = require("express");
+const router = express.Router();
+const UserAccessToken = require("../models/UserAccessToken");
+const { body, validationResult } = require("express-validator");
+const crypto = require("crypto");
+const rateLimit = require("express-rate-limit");
+
+// Rate limiting for token operations
+const tokenRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: {
+    success: false,
+    message: "Too many token requests, please try again later",
+  },
+});
+
+/**
+ * @route   GET /api/admin/access-tokens
+ * @desc    Get all access tokens with pagination and filtering
+ * @access  Admin
+ */
+router.get("/", async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search = "",
+      status = "all",
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = req.query;
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build filter query
+    let filter = {};
+
+    if (search) {
+      filter.$or = [
+        { tokenName: { $regex: search, $options: "i" } },
+        { createdBy: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    if (status !== "all") {
+      if (status === "active") {
+        filter.isActive = true;
+        filter.$or = [{ expiresAt: { $gt: new Date() } }, { expiresAt: null }];
+      } else if (status === "inactive") {
+        filter.isActive = false;
+      } else if (status === "expired") {
+        filter.expiresAt = { $lte: new Date() };
+      }
+    }
+
+    // Build sort object
+    const sort = {};
+    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+
+    // Get tokens with pagination
+    const tokens = await UserAccessToken.find(filter)
+      .sort(sort)
+      .skip(skip)
+      .limit(limitNum);
+
+    // Get total count for pagination
+    const total = await UserAccessToken.countDocuments(filter);
+
+    // Add computed fields
+    const tokensWithStatus = tokens.map((token) => ({
+      ...token.toObject(),
+      isExpired: token.isExpired(),
+      isUsageLimitReached: token.hasReachedLimit(),
+      status:
+        token.isActive && !token.isExpired() && !token.hasReachedLimit()
+          ? "active"
+          : "inactive",
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        tokens: tokensWithStatus,
+        pagination: {
+          current: pageNum,
+          pages: Math.ceil(total / limitNum),
+          total,
+          limit: limitNum,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching access tokens:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching access tokens",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/access-tokens/:id
+ * @desc    Get a specific access token by ID
+ * @access  Admin
+ */
+router.get("/:id", async (req, res) => {
+  try {
+    const token = await UserAccessToken.findById(req.params.id).select(
+      "-token"
+    ); // Don't return the actual token
+
+    if (!token) {
+      return res.status(404).json({
+        success: false,
+        message: "Access token not found",
+      });
+    }
+
+    // Add computed fields
+    const tokenWithStatus = {
+      ...token.toObject(),
+      isExpired: token.isExpired(),
+      isUsageLimitReached: token.hasReachedLimit(),
+      status:
+        token.isActive && !token.isExpired() && !token.hasReachedLimit()
+          ? "active"
+          : "inactive",
+    };
+
+    res.json({
+      success: true,
+      data: tokenWithStatus,
+    });
+  } catch (error) {
+    console.error("Error fetching access token:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching access token",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/access-tokens
+ * @desc    Create a new access token
+ * @access  Admin
+ */
+router.post(
+  "/",
+  [
+    body("maxUsage")
+      .isInt({ min: 1 })
+      .withMessage("Max usage must be a positive integer"),
+    body("expirationDays")
+      .isInt({ min: 1 })
+      .withMessage("Expiration days must be a positive integer"),
+  ],
+  tokenRateLimit,
+  async (req, res) => {
+    try {
+      // Check for validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: errors.array(),
+        });
+      }
+
+      const { maxUsage, expirationDays } = req.body;
+
+      // Calculate expiration date
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + Number(expirationDays));
+
+      // Generate automatic token name
+      const tokenName = `Auto-Token-${Date.now()}`;
+
+      // Create new access token with automatic settings (token will be auto-generated by pre-save hook)
+      const newToken = new UserAccessToken({
+        tokenName,
+        maxUsage: Number(maxUsage),
+        expiresAt,
+        createdBy: req.user?.username || req.user?.id || "system",
+        ipWhitelist: [],
+        rateLimit: {
+          requestsPerMinute: 60,
+          requestsPerHour: 1000,
+        },
+        isActive: true,
+      });
+
+      await newToken.save();
+
+      // Return token info (including the actual token only on creation)
+      const tokenResponse = {
+        ...newToken.toObject(),
+        isExpired: newToken.isExpired(),
+        isUsageLimitReached: newToken.hasReachedLimit(),
+        status: "active",
+      };
+
+      res.status(201).json({
+        success: true,
+        message: "Access token generated successfully",
+        data: tokenResponse,
+        warning: "Please save this token securely. It will not be shown again.",
+      });
+    } catch (error) {
+      console.error("Error generating access token:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error generating access token",
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * @route   PUT /api/admin/access-tokens/:id
+ * @desc    Update an access token
+ * @access  Admin
+ */
+router.put(
+  "/:id",
+  [
+    body("tokenName")
+      .optional()
+      .isLength({ min: 3, max: 100 })
+      .withMessage("Token name must be between 3 and 100 characters")
+      .trim(),
+
+    body("maxUsage")
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage("Max usage must be a positive integer"),
+    body("expiresAt")
+      .optional()
+      .custom((value) => {
+        if (value !== null && new Date(value) <= new Date()) {
+          throw new Error("Expiration date must be in the future");
+        }
+        return true;
+      }),
+    body("isActive")
+      .optional()
+      .isBoolean()
+      .withMessage("isActive must be a boolean"),
+    body("ipWhitelist")
+      .optional()
+      .isArray()
+      .withMessage("IP whitelist must be an array"),
+    body("rateLimit")
+      .optional()
+      .isObject()
+      .withMessage("Rate limit must be an object"),
+  ],
+  async (req, res) => {
+    try {
+      // Check for validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: errors.array(),
+        });
+      }
+
+      const tokenId = req.params.id;
+      const updates = req.body;
+
+      // Find the token
+      const token = await UserAccessToken.findById(tokenId);
+      if (!token) {
+        return res.status(404).json({
+          success: false,
+          message: "Access token not found",
+        });
+      }
+
+      // Check if new token name already exists (if updating name)
+      if (updates.tokenName && updates.tokenName !== token.tokenName) {
+        const existingToken = await UserAccessToken.findOne({
+          tokenName: updates.tokenName,
+          _id: { $ne: tokenId },
+        });
+        if (existingToken) {
+          return res.status(400).json({
+            success: false,
+            message: "Token name already exists",
+          });
+        }
+      }
+
+      // Update the token
+      Object.keys(updates).forEach((key) => {
+        if (key === "expiresAt" && updates[key] !== null) {
+          token[key] = new Date(updates[key]);
+        } else {
+          token[key] = updates[key];
+        }
+      });
+
+      token.updatedAt = new Date();
+      await token.save();
+
+      // Return updated token (without the actual token)
+      const tokenResponse = {
+        ...token.toObject(),
+        isExpired: token.isExpired(),
+        isUsageLimitReached: token.hasReachedLimit(),
+        status:
+          token.isActive && !token.isExpired() && !token.hasReachedLimit()
+            ? "active"
+            : "inactive",
+      };
+      delete tokenResponse.token;
+
+      res.json({
+        success: true,
+        message: "Access token updated successfully",
+        data: tokenResponse,
+      });
+    } catch (error) {
+      console.error("Error updating access token:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error updating access token",
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * @route   DELETE /api/admin/access-tokens/:id
+ * @desc    Delete an access token
+ * @access  Admin
+ */
+router.delete("/:id", async (req, res) => {
+  try {
+    const token = await UserAccessToken.findById(req.params.id);
+
+    if (!token) {
+      return res.status(404).json({
+        success: false,
+        message: "Access token not found",
+      });
+    }
+
+    await UserAccessToken.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: "Access token deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting access token:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error deleting access token",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/access-tokens/:id/reset-usage
+ * @desc    Reset usage count for an access token
+ * @access  Admin
+ */
+router.post("/:id/reset-usage", async (req, res) => {
+  try {
+    const token = await UserAccessToken.findById(req.params.id);
+
+    if (!token) {
+      return res.status(404).json({
+        success: false,
+        message: "Access token not found",
+      });
+    }
+
+    token.usageCount = 0;
+    token.updatedAt = new Date();
+    await token.save();
+
+    // Return updated token (without the actual token)
+    const tokenResponse = {
+      ...token.toObject(),
+      isExpired: token.isExpired(),
+      isUsageLimitReached: token.hasReachedLimit(),
+      status:
+        token.isActive && !token.isExpired() && !token.hasReachedLimit()
+          ? "active"
+          : "inactive",
+    };
+    delete tokenResponse.token;
+
+    res.json({
+      success: true,
+      message: "Usage count reset successfully",
+      data: tokenResponse,
+    });
+  } catch (error) {
+    console.error("Error resetting token usage:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error resetting token usage",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/access-tokens/stats
+ * @desc    Get access token statistics
+ * @access  Admin
+ */
+router.get("/stats/overview", async (req, res) => {
+  try {
+    const now = new Date();
+
+    // Get total counts
+    const totalTokens = await UserAccessToken.countDocuments();
+    const activeTokens = await UserAccessToken.countDocuments({
+      isActive: true,
+      $or: [{ expiresAt: { $gt: now } }, { expiresAt: null }],
+    });
+    const expiredTokens = await UserAccessToken.countDocuments({
+      expiresAt: { $lte: now },
+    });
+    const inactiveTokens = await UserAccessToken.countDocuments({
+      isActive: false,
+    });
+
+    // Get usage statistics
+    const usageStats = await UserAccessToken.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalUsage: { $sum: "$usageCount" },
+          avgUsage: { $avg: "$usageCount" },
+          maxUsage: { $max: "$usageCount" },
+        },
+      },
+    ]);
+
+    // Get tokens created in the last 30 days
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const recentTokens = await UserAccessToken.countDocuments({
+      createdAt: { $gte: thirtyDaysAgo },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        total: totalTokens,
+        active: activeTokens,
+        expired: expiredTokens,
+        inactive: inactiveTokens,
+        recentlyCreated: recentTokens,
+        usage: {
+          total: usageStats[0]?.totalUsage || 0,
+          average: Math.round(usageStats[0]?.avgUsage || 0),
+          maximum: usageStats[0]?.maxUsage || 0,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching token statistics:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching token statistics",
+      error: error.message,
+    });
+  }
+});
+
+module.exports = router;
