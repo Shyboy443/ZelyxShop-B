@@ -2967,37 +2967,7 @@ router.post("/check-notifications", protect, async (req, res) => {
   }
 });
 
-// @desc    Send test admin notification
-// @route   POST /api/admin/test-notification
-// @access  Private (Admin)
-router.post("/test-notification", protect, async (req, res) => {
-  try {
-    const { type = "DELIVERY_FAILURE" } = req.body;
 
-    const testData = {
-      orderNumber: "TEST-001",
-      customerEmail: "test@example.com",
-      productTitle: "Test Product",
-      quantity: 1,
-      errorMessage: "This is a test notification",
-      errorCode: "TEST_ERROR",
-      retryCount: 0,
-    };
-
-    await NotificationService.sendAdminAlert(type, testData);
-    res.json({
-      success: true,
-      message: `Test notification sent: ${type}`,
-    });
-  } catch (error) {
-    console.error("Error sending test notification:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to send test notification",
-      error: error.message,
-    });
-  }
-});
 
 // @desc    Check inventory levels and send alerts
 // @route   POST /api/admin/check-inventory-levels
@@ -3268,20 +3238,18 @@ router.post(
         });
       }
 
-      // For mock authentication, skip password verification
-      // In a real system, you would verify the admin password here
+      // Validate admin password
+      if (adminPassword !== process.env.ADMIN_PASSWORD) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid admin password",
+        });
+      }
+
       const admin = {
         id: req.user.id,
         email: req.user.email || "admin@gmail.com",
       };
-
-      // Mock password validation - accept any password for demo
-      if (!adminPassword) {
-        return res.status(401).json({
-          success: false,
-          message: "Admin password is required",
-        });
-      }
 
       // Verify confirmation code (should be "RESET_DATABASE_CONFIRM")
       if (confirmationCode !== "RESET_DATABASE_CONFIRM") {
@@ -3399,74 +3367,6 @@ router.post(
   }
 );
 
-// ===== SAMPLE DATA IMPORT =====
 
-// @desc    Import sample data to populate the database
-// @route   POST /api/admin/database/import-sample
-// @access  Private (Super Admin only)
-router.post(
-  "/database/import-sample",
-  protect,
-  authorize("super_admin"),
-  async (req, res) => {
-    try {
-      const { confirmationCode, adminPassword } = req.body;
-
-      // Validate required fields
-      if (!confirmationCode || !adminPassword) {
-        return res.status(400).json({
-          success: false,
-          message: "Confirmation code and admin password are required",
-        });
-      }
-
-      // For mock authentication, accept any password for demo
-      if (!adminPassword) {
-        return res.status(401).json({
-          success: false,
-          message: "Admin password is required",
-        });
-      }
-
-      // Verify confirmation code
-      if (confirmationCode !== "IMPORT_SAMPLE_DATA_CONFIRM") {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid confirmation code",
-        });
-      }
-
-      // Import sample data using the service
-      const { importSampleData } = require("../services/sampleDataService");
-      const createdCounts = await importSampleData();
-
-      // Log the import action
-      console.log(
-        `📦 SAMPLE DATA IMPORTED by ${req.user.email || "admin@gmail.com"}:`,
-        {
-          createdCounts,
-          timestamp: new Date().toISOString(),
-        }
-      );
-
-      res.json({
-        success: true,
-        message: "Sample data imported successfully",
-        data: {
-          createdCounts,
-          importedBy: req.user.email || "admin@gmail.com",
-          importedAt: new Date(),
-        },
-      });
-    } catch (error) {
-      console.error("Sample data import error:", error);
-      res.status(500).json({
-        success: false,
-        message: "Error importing sample data",
-        error: error.message,
-      });
-    }
-  }
-);
 
 module.exports = router;

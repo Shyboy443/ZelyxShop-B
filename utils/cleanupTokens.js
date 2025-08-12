@@ -5,9 +5,7 @@ require("dotenv").config();
 async function cleanupTokens() {
   try {
     // Connect to MongoDB
-    await mongoose.connect(
-      process.env.MONGO_URI || "mongodb://localhost:27017/test"
-    );
+    await mongoose.connect(process.env.MONGO_URI);
     console.log("Connected to MongoDB");
 
     // Find and delete records with null tokens

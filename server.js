@@ -17,32 +17,28 @@ app.use(
     origin:
       process.env.NODE_ENV === "production"
         ? "https://your-domain.com"
-        : [
-            "http://localhost:3000",
-            "http://localhost:3001",
-            "http://localhost:5000",
-          ], // Allow all development origins
+        : process.env.CLIENT_URL || "https://your-domain.com", // Production client URL
     credentials: true,
   })
 );
 
-// Rate limiting - more permissive for development
+// Rate limiting for production
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 2000, // increased limit for development
+  max: 100, // production limit
   message: "Too many requests from this IP, please try again later.",
   validate: {
-    xForwardedForHeader: false, // disable validation for development
+    xForwardedForHeader: true, // enable validation for production
   },
 });
 
-// More permissive rate limiting for order status checks
+// Rate limiting for order status checks
 const orderStatusLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 500, // Allow more frequent order status checks
+  max: 50, // production limit for order status checks
   message: "Too many order status requests, please try again later.",
   validate: {
-    xForwardedForHeader: false,
+    xForwardedForHeader: true,
   },
 });
 

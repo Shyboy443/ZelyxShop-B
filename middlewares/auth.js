@@ -18,18 +18,17 @@ const protect = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
     
-    // For mock authentication, create a mock user object
-    const mockUser = {
-      _id: decoded.id,
-      id: decoded.id,
-      email: 'admin@gmail.com',
-      firstName: 'Admin',
-      lastName: 'User',
-      role: 'super_admin',
-      lastLogin: new Date()
-    };
+    // Find the user in the database
+    const user = await AdminUser.findById(decoded.id).select('-password');
+    
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found",
+      });
+    }
 
-    req.user = mockUser;
+    req.user = user;
     next();
   } catch (err) {
     return res.status(401).json({

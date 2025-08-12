@@ -283,9 +283,6 @@ router.post("/confirm", async (req, res) => {
       });
     }
 
-    // Check for testing override
-    const skipPaymentCheck = process.env.SKIP_PAYMENT_CHECK === "true";
-
     // For now, just return success - the actual order creation and payment confirmation
     // will happen in the checkout flow after payment is successful
     res.json({
@@ -294,7 +291,6 @@ router.post("/confirm", async (req, res) => {
       paymentMethod,
       amount,
       customerEmail,
-      testMode: skipPaymentCheck,
     });
   } catch (error) {
     console.error("Error confirming payment:", error);
@@ -319,14 +315,11 @@ router.post("/bank-deposit", async (req, res) => {
       });
     }
 
-    // Check for testing override
-    const skipPaymentCheck = process.env.SKIP_PAYMENT_CHECK === "true";
-
     // Generate transaction ID for bank deposit
     const transactionId = `bank_deposit_${Date.now()}`;
 
     // For bank deposits, payment status is pending until receipt is verified
-    const paymentStatus = skipPaymentCheck ? "completed" : "pending";
+    const paymentStatus = "pending";
 
     res.json({
       success: true,
@@ -338,7 +331,6 @@ router.post("/bank-deposit", async (req, res) => {
       receiptInfo,
       message:
         "Bank deposit recorded. Please send payment receipt via chat for verification.",
-      testMode: skipPaymentCheck,
     });
   } catch (error) {
     console.error("Error processing bank deposit:", error);
@@ -365,14 +357,11 @@ router.post("/cryptocurrency", async (req, res) => {
       });
     }
 
-    // Check for testing override
-    const skipPaymentCheck = process.env.SKIP_PAYMENT_CHECK === "true";
-
     // Generate transaction ID for cryptocurrency
     const transactionId = `crypto_${cryptoType || "btc"}_${Date.now()}`;
 
     // For crypto, payment status is pending until blockchain confirmation
-    const paymentStatus = skipPaymentCheck ? "completed" : "pending";
+    const paymentStatus = "pending";
 
     res.json({
       success: true,
@@ -385,7 +374,6 @@ router.post("/cryptocurrency", async (req, res) => {
       walletAddress,
       message:
         "Cryptocurrency payment initiated. Awaiting blockchain confirmation.",
-      testMode: skipPaymentCheck,
     });
   } catch (error) {
     console.error("Error processing cryptocurrency payment:", error);
