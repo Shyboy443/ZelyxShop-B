@@ -14,10 +14,16 @@ app.set("trust proxy", 1);
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || [
+    origin: [
       "http://localhost:3000",
+      "http://localhost:3001",
       "https://zelyx-shop-h15ruo9vy-ashens-projects-29eb4a7c.vercel.app",
-      "https://*.vercel.app"
+      "https://*.vercel.app",
+      "https://www.zelyx.shop",
+      "https://zelyx.shop",
+      "https://ashen23232.netlify.app",
+      "https://zelyx-shop-twercel.app",
+      ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL] : [])
     ],
     credentials: true,
   })
@@ -143,6 +149,14 @@ const connectToDatabase = async () => {
 // Connect to database on startup
 connectToDatabase();
 
+// Start server for local development
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+  });
+}
+
 // Export the app for Vercel
 module.exports = app;
 
@@ -151,3 +165,4 @@ module.exports = app;
 //   console.log(`\n[${new Date().toISOString()}] ${req.method} ${req.path}`);
 //   next();
 // });
+
