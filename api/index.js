@@ -44,17 +44,7 @@ try {
   app.use('/categories', require('../routes/categories'));
   app.use('/orders', require('../routes/orders'));
   app.use('/admin', require('../routes/admin'));
-  
-  // Load currency route with specific error handling
-  try {
-    const currencyRoute = require('../routes/currency');
-    app.use('/currency', currencyRoute);
-    console.log('✅ Currency route loaded successfully');
-  } catch (currencyError) {
-    console.error('❌ Currency route loading failed:', currencyError.message);
-    console.error('Currency route stack:', currencyError.stack);
-  }
-  
+  app.use('/currency', require('../routes/currency'));
   app.use('/payments', require('../routes/payments'));
   app.use('/upload', require('../routes/upload'));
   app.use('/email-verification', require('../routes/emailVerification'));
@@ -62,8 +52,9 @@ try {
   app.use('/admin/access-tokens', require('../routes/accessTokens'));
   app.use('/customer/outlook-accounts', require('../routes/customerOutlookAccounts'));
   app.use('/otp', require('../routes/otp'));
+  console.log('✅ All routes loaded successfully');
 } catch (err) {
-  console.error('Route loading error:', err);
+  console.error('❌ Route loading error:', err);
 }
 
 // Root endpoint
@@ -98,7 +89,7 @@ app.get('/health', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Express error:', err.stack);
   res.status(500).json({
     message: 'Something went wrong!',
     error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error',
@@ -107,19 +98,22 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use('*', (req, res) => {
+  console.log('404 for path:', req.originalUrl);
   res.status(404).json({ message: 'Route not found' });
 });
 
 // Serverless function handler
 module.exports = async (req, res) => {
   try {
+    console.log('Serverless function called for:', req.url);
     await connectToDatabase();
     return app(req, res);
   } catch (error) {
     console.error('Serverless function error:', error);
     res.status(500).json({ 
       error: 'Internal server error',
-      message: 'Failed to initialize server'
+      message: 'Failed to initialize server',
+      details: error.message
     });
   }
 };
