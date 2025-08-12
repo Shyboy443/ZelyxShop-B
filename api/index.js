@@ -39,21 +39,21 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Routes with absolute path resolution
+// Routes with absolute path resolution and /api prefix
 try {
   const routesPath = path.join(__dirname, '..', 'routes');
-  app.use('/products', require(path.join(routesPath, 'products')));
-  app.use('/categories', require(path.join(routesPath, 'categories')));
-  app.use('/orders', require(path.join(routesPath, 'orders')));
-  app.use('/admin', require(path.join(routesPath, 'admin')));
-  app.use('/currency', require(path.join(routesPath, 'currency')));
-  app.use('/payments', require(path.join(routesPath, 'payments')));
-  app.use('/upload', require(path.join(routesPath, 'upload')));
-  app.use('/email-verification', require(path.join(routesPath, 'emailVerification')));
-  app.use('/admin/outlook-accounts', require(path.join(routesPath, 'outlookAccounts')));
-  app.use('/admin/access-tokens', require(path.join(routesPath, 'accessTokens')));
-  app.use('/customer/outlook-accounts', require(path.join(routesPath, 'customerOutlookAccounts')));
-  app.use('/otp', require(path.join(routesPath, 'otp')));
+  app.use('/api/products', require(path.join(routesPath, 'products')));
+  app.use('/api/categories', require(path.join(routesPath, 'categories')));
+  app.use('/api/orders', require(path.join(routesPath, 'orders')));
+  app.use('/api/admin', require(path.join(routesPath, 'admin')));
+  app.use('/api/currency', require(path.join(routesPath, 'currency')));
+  app.use('/api/payments', require(path.join(routesPath, 'payments')));
+  app.use('/api/upload', require(path.join(routesPath, 'upload')));
+  app.use('/api/email-verification', require(path.join(routesPath, 'emailVerification')));
+  app.use('/api/admin/outlook-accounts', require(path.join(routesPath, 'outlookAccounts')));
+  app.use('/api/admin/access-tokens', require(path.join(routesPath, 'accessTokens')));
+  app.use('/api/customer/outlook-accounts', require(path.join(routesPath, 'customerOutlookAccounts')));
+  app.use('/api/otp', require(path.join(routesPath, 'otp')));
   console.log('✅ All routes loaded successfully');
 } catch (err) {
   console.error('❌ Route loading error:', err);
@@ -82,7 +82,7 @@ app.get('/', (req, res) => {
 });
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     message: 'Zelyx API is running',
