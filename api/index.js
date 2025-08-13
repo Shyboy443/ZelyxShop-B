@@ -56,8 +56,7 @@ try {
   app.use('/api/payments', require(path.join(routesPath, 'payments')));
   app.use('/api/upload', require(path.join(routesPath, 'upload')));
   app.use('/api/email-verification', require(path.join(routesPath, 'emailVerification')));
-  app.use('/api/admin/outlook-accounts', require(path.join(routesPath, 'outlookAccounts')));
-  app.use('/api/admin/access-tokens', require(path.join(routesPath, 'accessTokens')));
+  // outlook-accounts and access-tokens are handled by admin.js sub-routes
   app.use('/api/customer/outlook-accounts', require(path.join(routesPath, 'customerOutlookAccounts')));
   app.use('/api/otp', require(path.join(routesPath, 'otp')));
   console.log('✅ All routes loaded successfully');
@@ -115,8 +114,17 @@ app.use('*', (req, res) => {
 // Serverless function handler
 module.exports = async (req, res) => {
   try {
-    console.log('Serverless function called for:', req.url);
+    console.log('Serverless function called for:', req.url, 'Method:', req.method);
     await connectToDatabase();
+    
+    // Add request logging for debugging
+    console.log('Request details:', {
+      url: req.url,
+      method: req.method,
+      headers: req.headers,
+      body: req.body
+    });
+    
     return app(req, res);
   } catch (error) {
     console.error('Serverless function error:', error);
