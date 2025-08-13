@@ -48,10 +48,20 @@ app.use(express.urlencoded({ extended: true }));
 // Routes with absolute path resolution and /api prefix
 try {
   const routesPath = path.join(__dirname, '..', 'routes');
+  console.log('📁 Routes path:', routesPath);
+  
+  // Load admin route with detailed logging
+  const adminRoutePath = path.join(routesPath, 'admin-serverless');
+  console.log('🔍 Loading admin route from:', adminRoutePath);
+  const adminRouter = require(adminRoutePath);
+  console.log('✅ Admin router loaded successfully');
+  app.use('/api/admin', adminRouter);
+  console.log('✅ Admin routes mounted at /api/admin');
+  
+  // Load other routes
   app.use('/api/products', require(path.join(routesPath, 'products')));
   app.use('/api/categories', require(path.join(routesPath, 'categories')));
   app.use('/api/orders', require(path.join(routesPath, 'orders')));
-  app.use('/api/admin', require(path.join(routesPath, 'admin')));
   app.use('/api/currency', require(path.join(routesPath, 'currency')));
   app.use('/api/payments', require(path.join(routesPath, 'payments')));
   app.use('/api/upload', require(path.join(routesPath, 'upload')));
@@ -64,6 +74,7 @@ try {
   console.error('❌ Route loading error:', err);
   console.error('❌ __dirname:', __dirname);
   console.error('❌ Routes path:', path.join(__dirname, '..', 'routes'));
+  console.error('❌ Error stack:', err.stack);
 }
 
 // Root endpoint

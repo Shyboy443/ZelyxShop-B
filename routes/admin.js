@@ -173,16 +173,14 @@ router.post("/login", async (req, res) => {
     res.json({
       success: true,
       message: "Login successful",
-      data: {
-        token,
-        user: {
-          id: admin._id,
-          email: admin.email,
-          firstName: admin.firstName,
-          lastName: admin.lastName,
-          role: admin.role,
-          lastLogin: new Date(),
-        },
+      token,
+      admin: {
+        id: admin._id,
+        email: admin.email,
+        firstName: admin.firstName,
+        lastName: admin.lastName,
+        role: admin.role,
+        lastLogin: new Date(),
       },
     });
   } catch (error) {
