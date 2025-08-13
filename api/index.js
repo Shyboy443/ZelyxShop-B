@@ -19,6 +19,12 @@ const connectToDatabase = async () => {
     });
     isConnected = true;
     console.log('✅ Connected to MongoDB');
+    
+    // Create default admin user (only run once)
+    if (!global.adminCreated) {
+      require(path.join(__dirname, '..', 'utils', 'createAdmin'))();
+      global.adminCreated = true;
+    }
   } catch (err) {
     console.error('❌ MongoDB connection error:', err);
     throw err;
@@ -45,7 +51,7 @@ try {
   app.use('/api/products', require(path.join(routesPath, 'products')));
   app.use('/api/categories', require(path.join(routesPath, 'categories')));
   app.use('/api/orders', require(path.join(routesPath, 'orders')));
-  app.use('/api/admin', require(path.join(routesPath, 'admin-simple')));
+  app.use('/api/admin', require(path.join(routesPath, 'admin')));
   app.use('/api/currency', require(path.join(routesPath, 'currency')));
   app.use('/api/payments', require(path.join(routesPath, 'payments')));
   app.use('/api/upload', require(path.join(routesPath, 'upload')));
